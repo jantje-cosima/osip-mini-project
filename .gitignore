@@ -16,3 +16,6 @@ Thumbs.db
 desktop.ini
 .vscode/
 .positron/
+
+# Local simulated-data generation (not tracked)
+simulated_data_gen/
