@@ -7,8 +7,9 @@
 #   source("scripts/00_run_pipeline.R"); res <- run_pipeline()
 
 # --- Load function definitions ---------------------------------------------------
+source(file.path("scripts", "qc_utils.R"))
 source(file.path("scripts", "01_load_data.R"))
-# source(file.path("scripts", "02_qc_input.R"))      # add as each stage is written
+source(file.path("scripts", "02_qc_input.R"))     
 # source(file.path("scripts", "03_drug_exposure.R"))
 # ...
 
@@ -24,6 +25,13 @@ run_pipeline <- function(refit = FALSE) {
   }
 
   # 2. QC input data
+  qc_v <- qc_vt(vt)
+  qc_d <- qc_drug(drug)
+  vt   <- qc_v$data      # now with qc_exclude / qc_reason columns
+  drug <- qc_d$data
+  qc_flags <- rbind(qc_v$flags, qc_d$flags)
+  message("QC input: ", sum(qc_flags$severity == "exclude"), " exclusion flag(s), ",
+          sum(qc_flags$severity == "warning"), " warning(s)")
   # 3. Drug exposure
   # 4. Lassen fits
   # 5. QC Lassen
@@ -33,7 +41,7 @@ run_pipeline <- function(refit = FALSE) {
   # 9. Render report
 
   message("Pipeline finished.")
-  invisible(list(vt = vt, drug = drug))
+  invisible(list(vt = vt, drug = drug, qc_flags = qc_flags))
 }
 
 # Run automatically only when called with Rscript, not when sourced
