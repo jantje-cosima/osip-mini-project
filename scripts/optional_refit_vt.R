@@ -135,6 +135,7 @@ tcm2_frames <- function(K1, k2, k3, k4, plasma_t, plasma_c, frame_start, frame_e
   cs <- c(0, cumsum(pet))
   (cs[last + 1] - cs[first]) / (last - first + 1)
 }
+
 # Add the fitted curve (from the K1-k4 in vt) to every TAC frame
 add_fitted_tacs <- function(tacs, plasma, vt) {
   tacs <- tacs[order(tacs$subject, tacs$session, tacs$region, tacs$frame), ]
