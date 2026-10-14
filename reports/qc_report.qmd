@@ -1,0 +1,83 @@
+---
+title: "QC report"
+subtitle: "Lassen / EC50 mini-project"
+date: today
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+---
+
+```{r setup}
+res   <- readRDS(file.path("..", "results", "pipeline_results.rds"))
+flags <- res$qc_flags
+vt    <- res$vt
+drug  <- res$drug
+
+# Show a flag table, or a short note if there are no flags
+show_flags <- function(f) {
+  if (nrow(f) == 0) {
+    cat("No flags.\n")
+  } else {
+    f$value <- signif(f$value, 3)
+    knitr::kable(f[, c("check", "severity", "subject", "session", "region",
+                       "value", "message")], row.names = FALSE)
+  }
+}
+```
+
+## Summary
+
+All QC flags raised by the pipeline, by stage and check.
+*exclude* = row removed from the analysis; *warning* = kept, but reported.
+
+```{r summary}
+if (nrow(flags) == 0) {
+  cat("No flags.\n")
+} else {
+  knitr::kable(as.data.frame.matrix(table(paste(flags$stage, flags$check),
+                                          flags$severity)))
+}
+```
+
+Rows excluded from the analysis: **`r sum(vt$qc_exclude)`** of `r nrow(vt)`
+VT estimates and **`r sum(drug$qc_exclude)`** of `r nrow(drug)` drug samples.
+
+## Stage 2 – Input data
+
+### VT estimates
+
+```{r vt-se, fig.cap = "Relative SE of VT per region. Dashed line: exclusion threshold."}
+op <- par(mar = c(8, 4, 1, 1))
+boxplot(VT_SE_pct ~ region, data = vt, las = 2, log = "y",
+        xlab = "", ylab = "VT SE (%)")
+abline(h = 25, lty = 2)
+par(op)
+```
+
+```{r vt-flags, results = "asis"}
+show_flags(flags[flags$stage == "qc_vt", ])
+```
+
+### Drug samples
+
+```{r drug-flags, results = "asis"}
+show_flags(flags[flags$stage == "qc_drug", ])
+```
+
+## Stage 5 – Lassen fits
+
+*Not implemented yet.*
+
+## Stage 7 – EC50 fit
+
+*Not implemented yet.*
+
+## Session info
+
+```{r session}
+sessionInfo()
+```
