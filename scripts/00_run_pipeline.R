@@ -14,6 +14,7 @@ source(file.path("scripts", "03_drug_exposure.R"))
 source(file.path("scripts", "04_fit_lassen.R"))
 source(file.path("scripts", "05_qc_lassen.R"))
 source(file.path("scripts", "06_fit_ec50.R"))
+source(file.path("scripts", "07_qc_ec50.R"))
 # ...
 
 run_pipeline <- function(refit = FALSE, qc_report = TRUE) {
@@ -56,6 +57,11 @@ run_pipeline <- function(refit = FALSE, qc_report = TRUE) {
                   ec50$result$ci_high, ec50$result$n_scans))
 
   # 7. QC EC50
+  qc_e <- qc_ec50(ec50)
+  ec50$points <- qc_e$data
+  qc_flags <- rbind(qc_flags, qc_e$flags)
+  message("QC EC50: ", nrow(qc_e$flags), " warning(s)")
+
   # 8. Figures and tables
   # 9. Render report
 
