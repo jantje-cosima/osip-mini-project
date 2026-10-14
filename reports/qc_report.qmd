@@ -120,7 +120,46 @@ show_flags(lf)
 
 ## Stage 7 – EC50 fit
 
-*Not implemented yet.*
+Emax model: occupancy = occ~max~ · C / (C + EC50), one point per block scan.
+
+```{r ec50-result}
+er  <- res$ec50$result
+ept <- res$ec50$points
+ef  <- flags[flags$stage == "qc_ec50", ]
+```
+**EC50 = `r sprintf("%.1f", er$EC50_ng_mL)` ng/mL**
+(95% CI `r sprintf("%.1f–%.1f", er$ci_low, er$ci_high)`),
+occ~max~ fixed at `r er$occ_max`, `r er$n_scans` scans, residual SD
+`r sprintf("%.3f", er$resid_sd)`.
+```{r ec50-plot, fig.width = 7, fig.height = 5, fig.cap = "Occupancy vs plasma concentration. Solid line: Emax fit; dashed lines: curves at the 95% CI limits of EC50. Red points: flagged scans."}
+flagged <- paste(ept$subject, ept$session) %in% paste(ef$subject, ef$session)
+emax <- function(conc, ec50) er$occ_max * conc / (conc + ec50)
+conc_grid <- 10^seq(log10(min(ept$conc_ng_mL) / 2), log10(max(ept$conc_ng_mL) * 2),
+                    length.out = 200)
+
+plot(ept$conc_ng_mL, ept$occupancy, log = "x", pch = 19,
+     col = ifelse(flagged, "red", "black"), ylim = c(-0.1, 1.1),
+     xlab = "Plasma drug concentration (ng/mL)", ylab = "Occupancy")
+lines(conc_grid, emax(conc_grid, er$EC50_ng_mL), col = "steelblue", lwd = 2)
+lines(conc_grid, emax(conc_grid, er$ci_low),  col = "steelblue", lty = 2)
+lines(conc_grid, emax(conc_grid, er$ci_high), col = "steelblue", lty = 2)
+abline(v = er$EC50_ng_mL, col = "grey60", lty = 3)
+abline(h = c(0, er$occ_max), col = "grey85")
+```
+```{r ec50-loo, fig.width = 7, fig.height = 4.5, fig.cap = "Leave-one-out: change in EC50 when each scan is left out. Dashed lines: influence threshold."}
+o <- order(ept$conc_ng_mL)
+op <- par(mar = c(7, 4, 1, 1))
+barplot(ept$loo_change_pct[o], names.arg = paste(ept$subject, ept$session)[o],
+        las = 2, cex.names = 0.7, ylab = "Change in EC50 (%)",
+        col = ifelse(flagged[o], "red", "grey70"),
+        ylim = range(c(-20, 20, ept$loo_change_pct)))
+abline(h = c(-15, 15), lty = 2)
+par(op)
+```
+```{r ec50-flags, results = "asis"}
+show_flags(ef)
+```
+
 
 ## Session info
 

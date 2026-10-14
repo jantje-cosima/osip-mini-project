@@ -15,6 +15,7 @@ source(file.path("scripts", "04_fit_lassen.R"))
 source(file.path("scripts", "05_qc_lassen.R"))
 source(file.path("scripts", "06_fit_ec50.R"))
 source(file.path("scripts", "07_qc_ec50.R"))
+source(file.path("scripts", "08_make_outputs.R"))
 # ...
 
 run_pipeline <- function(refit = FALSE, qc_report = TRUE) {
@@ -62,14 +63,18 @@ run_pipeline <- function(refit = FALSE, qc_report = TRUE) {
   qc_flags <- rbind(qc_flags, qc_e$flags)
   message("QC EC50: ", nrow(qc_e$flags), " warning(s)")
 
-  # 8. Figures and tables
-  # 9. Render report
-
-  # Save results; the reports read this file instead of re-running the analysis
+  # Collect results
   res <- list(vt = vt, drug = drug, exposure = exposure, lassen = lassen,
               ec50 = ec50, qc_flags = qc_flags)
+
+  # 8. Figures and tables
+  make_outputs(res)
+  message("Outputs written to results/")
+
+  # 9. Save results; the reports read this file instead of re-running the analysis
   saveRDS(res, file.path("results", "pipeline_results.rds"))
 
+  # Render the QC report
   if (qc_report) {
     quarto::quarto_render(file.path("reports", "qc_report.qmd"), quiet = TRUE)
     message("QC report: reports/qc_report.html")
