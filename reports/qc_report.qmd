@@ -68,6 +68,66 @@ show_flags(flags[flags$stage == "qc_vt", ])
 show_flags(flags[flags$stage == "qc_drug", ])
 ```
 
+## Optional – TACs and arterial input
+
+```{r tac-qc, results = "asis"}
+tf <- flags[flags$stage %in% c("qc_tacs", "qc_plasma"), ]
+if (is.null(res$plasma)) {
+  cat("*Not run. Use `run_pipeline(tac_qc = TRUE)` to check the TACs and the",
+      "arterial input behind the VT estimates.*\n")
+} else {
+  show_flags(tf)
+}
+```
+
+```{r plasma-plot, eval = !is.null(res$plasma) && any(res$plasma$qc_flagged), fig.width = 7, fig.height = 4.5, fig.cap = "Arterial input curves with a flagged sample (black, flagged sample in red); all other curves in grey."}
+pl  <- res$plasma[res$plasma$plasma_parent_kBq_mL > 0, ]
+cid <- paste(pl$subject, pl$session)
+bad <- unique(cid[pl$qc_flagged])
+
+plot(pl$time_min, pl$plasma_parent_kBq_mL, log = "y", type = "n",
+     ylim = c(0.1, max(pl$plasma_parent_kBq_mL)),
+     xlab = "Time (min)", ylab = "Parent in plasma (kBq/mL)")
+for (k in setdiff(unique(cid), bad)) {
+  lines(pl$time_min[cid == k], pl$plasma_parent_kBq_mL[cid == k], col = "grey80")
+}
+for (k in bad) {
+  lines(pl$time_min[cid == k], pl$plasma_parent_kBq_mL[cid == k], lwd = 1.5)
+}
+points(pl$time_min[pl$qc_flagged], pl$plasma_parent_kBq_mL[pl$qc_flagged],
+       pch = 19, col = "red")
+legend("topright", bty = "n", legend = bad, lty = 1, lwd = 1.5, cex = 0.8)
+```
+```{r tac-plots, eval = !is.null(res$tacs), fig.width = 9, fig.height = 24, fig.cap = "TACs per subject (rows) and session (columns). Circles: measured TAC; lines: 2TCM fit from the VT estimates (dashed: VT excluded by QC). One colour per region."}
+tc  <- res$tacs
+tc$t_mid <- (tc$frame_start_min + tc$frame_end_min) / 2
+regs <- sort(unique(tc$region))
+cols <- setNames(hcl.colors(length(regs), "Dark 3"), regs)
+excl <- paste(vt$subject, vt$session, vt$region)[vt$qc_exclude]
+
+op <- par(mfrow = c(length(unique(tc$subject)), 3), mar = c(3, 3.5, 2, 0.5),
+          mgp = c(2, 0.6, 0), oma = c(4, 0, 0, 0))
+for (s in sort(unique(tc$subject))) {
+  for (ses in c("baseline", "block1", "block2")) {
+    d <- tc[tc$subject == s & tc$session == ses, ]
+    plot(NA, xlim = range(tc$t_mid), ylim = range(tc$activity_kBq_mL),
+         xlab = "Time (min)", ylab = "kBq/mL", main = paste(s, ses), cex.main = 0.9)
+    for (r in regs) {
+      dr <- d[d$region == r, ]
+      points(dr$t_mid, dr$activity_kBq_mL, col = cols[r], pch = 1, cex = 0.5)
+      lines(dr$t_mid, dr$fitted, col = cols[r],
+            lty = ifelse(paste(s, ses, r) %in% excl, 2, 1))
+    }
+  }
+}
+par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
+plot.new()
+legend("bottom", legend = regs, col = cols, pch = 1, lty = 1, ncol = 5, bty = "n",
+       cex = 0.9)
+par(op)
+```
+
+
 ## Stage 5 – Lassen fits
 
 One Lassen plot per subject and block session:

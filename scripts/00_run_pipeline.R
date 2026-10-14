@@ -16,9 +16,11 @@ source(file.path("scripts", "05_qc_lassen.R"))
 source(file.path("scripts", "06_fit_ec50.R"))
 source(file.path("scripts", "07_qc_ec50.R"))
 source(file.path("scripts", "08_make_outputs.R"))
+source(file.path("scripts", "optional_refit_vt.R"))
 # ...
 
-run_pipeline <- function(refit = FALSE, qc_report = TRUE) {
+run_pipeline <- function(refit = FALSE, tac_qc = FALSE, qc_report = TRUE,
+                         report = TRUE) {
 
   # 1. Load
   vt   <- load_vt()
@@ -37,6 +39,20 @@ run_pipeline <- function(refit = FALSE, qc_report = TRUE) {
   qc_flags <- rbind(qc_v$flags, qc_d$flags)
   message("QC input: ", sum(qc_flags$severity == "exclude"), " exclusion flag(s), ",
           sum(qc_flags$severity == "warning"), " warning(s)")
+  
+  # Optional: QC of the TACs and arterial input behind the VT estimates
+  plasma <- NULL
+  tacs   <- NULL
+  if (tac_qc) {
+    tacs   <- load_tacs()
+    plasma <- load_plasma()
+    qc_t <- qc_tacs(tacs)
+    qc_p <- qc_plasma(plasma)
+    plasma   <- qc_p$data           # now with qc_flagged per sample
+    tacs     <- add_fitted_tacs(tacs, plasma, vt)   # 2TCM curve from the VT fits
+    qc_flags <- rbind(qc_flags, qc_t$flags, qc_p$flags)
+    message("QC TACs/input: ", nrow(qc_t$flags) + nrow(qc_p$flags), " warning(s)")
+  }
 
   # 3. Drug exposure
   exposure <- drug_exposure(drug)
@@ -65,7 +81,7 @@ run_pipeline <- function(refit = FALSE, qc_report = TRUE) {
 
   # Collect results
   res <- list(vt = vt, drug = drug, exposure = exposure, lassen = lassen,
-              ec50 = ec50, qc_flags = qc_flags)
+              ec50 = ec50, tacs = tacs, plasma = plasma, qc_flags = qc_flags)
 
   # 8. Figures and tables
   make_outputs(res)
@@ -80,6 +96,12 @@ run_pipeline <- function(refit = FALSE, qc_report = TRUE) {
     message("QC report: reports/qc_report.html")
   }
 
+  # Render the final report
+  if (report) {
+    quarto::quarto_render(file.path("reports", "report.qmd"), quiet = TRUE)
+    message("Report: reports/report.html")
+  }
+  
   message("Pipeline finished.")
   invisible(res)
 }

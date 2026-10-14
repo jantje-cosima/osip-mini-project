@@ -1,0 +1,106 @@
+---
+title: "Plasma EC50 of receptor occupancy from a simulated PET blocking study"
+subtitle: "Mini-project, Open Science in Practice (K8F6106), HT 2026"
+author: "Martin Bolin"
+date: today
+format:
+  html:
+    toc: true
+    number-sections: true
+    embed-resources: true
+execute:
+  echo: false
+  warning: false
+---
+
+```{r setup}
+res   <- readRDS(file.path("..", "results", "pipeline_results.rds"))
+vt    <- res$vt
+fits  <- res$lassen$fits
+er    <- res$ec50$result
+flags <- res$qc_flags
+fig   <- function(name) file.path("..", "results", "figures", name)
+```
+## Aim
+
+To estimate the plasma EC50 of a drug from a PET receptor-occupancy study:
+receptor occupancy is derived per scan with the Lassen plot, and related to
+the plasma drug concentration with an Emax model. The emphasis of the project
+is a reproducible, quality-controlled analysis pipeline.
+
+## Data
+
+All data are simulated; no real subject data are used.
+
+- `r length(unique(vt$subject))` subjects, each scanned three times: baseline,
+  block 1 (~3 h after a single oral dose) and block 2 (~24 h after the dose).
+  Doses ranged from `r min(res$exposure$dose_mg)` to `r max(res$exposure$dose_mg)` mg.
+- `r length(unique(vt$region))` brain regions per scan, with VT estimated by a
+  two-tissue compartment model (2TCM) with arterial input
+  (`data/raw/vt_estimates.csv`, `r nrow(vt)` estimates).
+- Plasma drug concentration measured at the start and end of each block scan
+  (`data/raw/drug_plasma.csv`).
+## Methods
+
+The pipeline (`scripts/00_run_pipeline.R`) runs all steps from the raw data to
+this report. Quality control (QC) is applied after each analysis step; QC
+never deletes data but flags it as *exclude* (not used further) or *warning*
+(kept, reported). All flags are listed in the separate QC report.
+
+| Step | Method | QC (exclude) |
+|---|---|---|
+| VT estimates | 2TCM fits as provided | not converged; VT ≤ 0; SE > 25 %; k4 at its lower fit bound |
+| Drug exposure | mean of start and end sample per scan | concentration missing or ≤ 0 |
+| Occupancy | Lassen plot per subject × block session: VT~base~ − VT~block~ vs VT~base~; slope = occupancy, x-intercept = V~ND~ | fewer than 4 regions; occupancy outside −0.2 to 1.2 |
+| EC50 | Emax model, occupancy = C / (C + EC50), least squares on log EC50 | (warnings only: outliers, leave-one-out influence, CI width) |
+## Results
+
+### Quality control
+
+Of `r nrow(vt)` VT estimates, `r sum(vt$qc_exclude)` were excluded
+(`r sum(grepl("high_se", vt$qc_reason))` for high SE,
+`r sum(grepl("k4_at_lower_bound", vt$qc_reason))` for k4 at its lower bound).
+All `r nrow(fits)` Lassen fits were usable
+(`r sum(fits$qc_exclude)` excluded), giving `r er$n_scans` points for the EC50 fit.
+The EC50 QC raised `r sum(flags$stage == "qc_ec50")` flags.
+### Receptor occupancy
+
+![Example Lassen plots at low, medium and high occupancy (chosen among fits with R² ≥ 0.8; all fits are shown in the QC report).](`r fig("lassen_examples.png")`)
+
+```{r occupancy-table}
+occ <- read.csv(file.path("..", "results", "tables", "occupancy_per_scan.csv"))
+occ <- occ[!occ$qc_exclude, ]
+knitr::kable(data.frame(Subject = occ$subject, Session = occ$session,
+                        `Dose (mg)` = occ$dose_mg,
+                        `Plasma conc. (ng/mL)` = signif(occ$conc_ng_mL, 3),
+                        Regions = occ$n_regions,
+                        Occupancy = sprintf("%.2f ± %.2f", occ$occupancy, occ$occupancy_se),
+                        VND = round(occ$VND, 2),
+                        check.names = FALSE),
+             caption = "Occupancy (± SE) per scan from the Lassen plot.")
+```
+### Plasma EC50
+
+The plasma EC50 was **`r sprintf("%.1f", er$EC50_ng_mL)` ng/mL**
+(95 % CI `r sprintf("%.1f–%.1f", er$ci_low, er$ci_high)`), based on
+`r er$n_scans` scans with occ~max~ fixed at `r er$occ_max`.
+
+![Receptor occupancy versus plasma drug concentration with the Emax fit and its 95 % confidence band.](`r fig("ec50_curve.png")`)
+## Discussion
+
+- Occupancy is estimated precisely at high occupancy, but the Lassen plot is
+  unstable at low occupancy, where VT~base~ − VT~block~ is mostly noise.
+- 2TCM fits with k4 at its lower bound gave strongly biased VT with
+  normal-looking SEs; excluding them by rule improved the Lassen fits more than
+  removing Lassen outliers afterwards.
+- Limitations: simulated data; ordinary least squares in the Lassen plot
+  ignores noise in VT~base~; occ~max~ fixed at 1.
+
+## Reproducibility
+
+The full analysis is reproduced with `renv::restore()` followed by
+`Rscript scripts/00_run_pipeline.R` (see the README).
+
+```{r session}
+sessionInfo()
+```
