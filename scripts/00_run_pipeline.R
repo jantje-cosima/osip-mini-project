@@ -11,6 +11,7 @@ source(file.path("scripts", "qc_utils.R"))
 source(file.path("scripts", "01_load_data.R"))
 source(file.path("scripts", "02_qc_input.R"))
 source(file.path("scripts", "03_drug_exposure.R"))
+source(file.path("scripts", "04_fit_lassen.R"))
 # ...
 
 run_pipeline <- function(refit = FALSE, qc_report = TRUE) {
@@ -35,7 +36,10 @@ run_pipeline <- function(refit = FALSE, qc_report = TRUE) {
 
   # 3. Drug exposure
   exposure <- drug_exposure(drug)
+
   # 4. Lassen fits
+  lassen <- fit_lassen(vt)
+
   # 5. QC Lassen
   # 6. EC50 fit
   # 7. QC EC50
@@ -43,7 +47,8 @@ run_pipeline <- function(refit = FALSE, qc_report = TRUE) {
   # 9. Render report
 
   # Save results; the reports read this file instead of re-running the analysis
-  res <- list(vt = vt, drug = drug, exposure = exposure, qc_flags = qc_flags)
+  res <- list(vt = vt, drug = drug, exposure = exposure, lassen = lassen,
+              qc_flags = qc_flags)
   saveRDS(res, file.path("results", "pipeline_results.rds"))
 
   if (qc_report) {
