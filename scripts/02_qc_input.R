@@ -2,7 +2,7 @@
 # Stage 2 (QC input data): flag problems in the loaded data.
 # QC never removes data; it returns flags + a qc_exclude column.
 
-qc_vt <- function(vt, max_se_pct = 25, max_robust_z = 3.5,
+qc_vt <- function(vt, max_se_pct = 25, max_robust_z = 3.5, k4_lower = 0.005,
                   sessions = c("baseline", "block1", "block2")) {
   stage <- "qc_vt"
 
@@ -23,6 +23,8 @@ qc_vt <- function(vt, max_se_pct = 25, max_robust_z = 3.5,
                vt$VT, "VT missing or <= 0"),
     make_flags(vt, vt$at_bound, stage, "at_bound", "warning",
                vt$VT, "rate constant at fit bound; SE may be underestimated"),
+    make_flags(vt, vt$k4 <= k4_lower * 1.001, stage, "k4_at_lower_bound", "exclude",
+               vt$k4, "k4 at its lower fit bound: 2TCM fit degenerate, VT unreliable"),           
     make_flags(vt, abs(z) > max_robust_z, stage, "regional_outlier", "warning",
                z, paste0("baseline VT deviates from other subjects (|robust z| > ",
                          max_robust_z, ")"))

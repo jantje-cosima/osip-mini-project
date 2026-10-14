@@ -70,7 +70,53 @@ show_flags(flags[flags$stage == "qc_drug", ])
 
 ## Stage 5 – Lassen fits
 
-*Not implemented yet.*
+One Lassen plot per subject and block session:
+y = VT~baseline~ − VT~block~, x = VT~baseline~; slope = occupancy, x-intercept = V~ND~.
+```{r lassen-table}
+fits  <- res$lassen$fits
+pairs <- res$lassen$pairs
+lf    <- flags[flags$stage == "qc_lassen", ]
+
+# All flag names per fit (fit-level and point-level), as one text column
+fit_key  <- paste(fits$subject, fits$session)
+flag_key <- paste(lf$subject, lf$session)
+fits$flags <- vapply(fit_key, function(k) paste(unique(lf$check[flag_key == k]),
+                                                collapse = ", "), character(1))
+
+tab <- data.frame(subject   = fits$subject,
+                  session   = fits$session,
+                  regions   = fits$n_regions,
+                  occupancy = sprintf("%.2f ± %.2f", fits$occupancy, fits$occupancy_se),
+                  VND       = round(fits$VND, 2),
+                  R2        = round(fits$r_squared, 2),
+                  excluded  = ifelse(fits$qc_exclude, "yes", ""),
+                  flags     = fits$flags)
+knitr::kable(tab, row.names = FALSE)
+```
+```{r lassen-plots, fig.width = 10, fig.height = 13, fig.cap = "Lassen plots. Red points: flagged as Lassen outliers. Grey panel title: fit excluded."}
+outliers <- paste(lf$subject, lf$session, lf$region)[lf$check == "lassen_outlier"]
+
+op <- par(mfrow = c(5, 4), mar = c(4, 4, 2.5, 1), mgp = c(2.2, 0.7, 0))
+for (i in seq_len(nrow(fits))) {
+  f <- fits[i, ]
+  p <- pairs[pairs$subject == f$subject & pairs$session == f$session, ]
+  is_out <- paste(p$subject, p$session, p$region) %in% outliers
+
+  plot(p$VT_base, p$delta, pch = 19, col = ifelse(is_out, "red", "black"),
+       xlim = c(0, max(pairs$VT_base)), ylim = range(c(0, pairs$delta)),
+       xlab = "VT baseline", ylab = "VT base − VT block",
+       main = sprintf("%s %s: occ %.2f, R² %.2f", f$subject, f$session,
+                      f$occupancy, f$r_squared),
+       col.main = ifelse(f$qc_exclude, "grey50", "black"), cex.main = 0.9)
+  abline(h = 0, col = "grey80")
+  if (!is.na(f$occupancy)) abline(a = f$intercept, b = f$occupancy, col = "steelblue")
+}
+par(op)
+```
+```{r lassen-flags, results = "asis"}
+show_flags(lf)
+```
+
 
 ## Stage 7 – EC50 fit
 
