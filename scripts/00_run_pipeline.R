@@ -12,6 +12,7 @@ source(file.path("scripts", "01_load_data.R"))
 source(file.path("scripts", "02_qc_input.R"))
 source(file.path("scripts", "03_drug_exposure.R"))
 source(file.path("scripts", "04_fit_lassen.R"))
+source(file.path("scripts", "05_qc_lassen.R"))
 # ...
 
 run_pipeline <- function(refit = FALSE, qc_report = TRUE) {
@@ -41,6 +42,12 @@ run_pipeline <- function(refit = FALSE, qc_report = TRUE) {
   lassen <- fit_lassen(vt)
 
   # 5. QC Lassen
+  qc_l <- qc_lassen(lassen)
+  lassen$fits <- qc_l$data        # now with qc_exclude / qc_reason
+  qc_flags <- rbind(qc_flags, qc_l$flags)
+  message("QC Lassen: ", sum(qc_l$data$qc_exclude), " of ", nrow(qc_l$data),
+          " fits excluded")
+
   # 6. EC50 fit
   # 7. QC EC50
   # 8. Figures and tables
