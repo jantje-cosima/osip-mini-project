@@ -7,6 +7,9 @@ A reproducible R pipeline that estimates receptor occupancy with the **Lassen
 plot** and the plasma **EC50** with an Emax model, with quality control (QC)
 after every step. All data are **simulated**; no real subject data are used.
 
+In this study, EC50 represents the plasma drug concentration associated 
+with half of the maximum receptor occupancy predicted by the Emax model.
+
 ![EC50 curve](results/figures/ec50_curve.png)
 
 ## Data
