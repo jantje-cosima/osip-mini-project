@@ -26,5 +26,6 @@ results
 reports/*.html
 reports/*_files/
 reports/.quarto/
+README.html
 
 
